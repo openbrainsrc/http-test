@@ -9,6 +9,8 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Exception hiding (assert)
 import Control.Monad
+import Control.Monad.Reader
+import Control.Monad.State.Strict
 import Control.Monad.Trans
 import Data.Char
 import Data.IORef
@@ -24,7 +26,47 @@ import System.Exit
 import System.IO
 import System.IO.Error
 
+
+type ProgramM = ReaderT (TVar Results) IO
+
+data SuiteState = SuiteState { suiteResults :: Results,
+                               suiteBaseUrl :: String }
+
+type SuiteM = StateT SuiteState IO
+
+type Results = [(String, Maybe String)]
+
+httpTest :: ProgramM () -> IO ()
+httpTest m = withCurlDo $ do
+   c <- initialize
+   resTV <- newTVarIO []
+   runReaderT m
+   finalRes <- atomically $ readTVar resTV
+
+   -- you probably want to print results
+
+   if any (isJust . snd) finalRes
+      then exitWith $ ExitFailure 1
+      else exitWith $ ExitSuccess
+
+suite :: String -> String -> SuiteM () ->  ProgramM ()
+suite suiteName baseURL m = do
+   let state = SuiteState [] baseURL
+   SuiteState res _ <- execStateT m state0
+   ...
+
+get :: String -> SuiteM Response
+
+getRaw :: String -> SuiteM Response
+
+getJSON :: String -> 
+
+assert :: String -> Bool -> SuiteM ()
+
 -- | Processes all files, possibly in parallel
+
+
+
 
 processAllFiles :: Options -> IO ()
 processAllFiles opts = do
