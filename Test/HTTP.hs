@@ -9,6 +9,7 @@ import Control.Concurrent
 import Control.Concurrent.STM
 import Control.Exception hiding (assert)
 import Control.Monad
+import Control.Monad.Error
 import Control.Monad.Reader
 import qualified Control.Monad.State.Strict as State
 import Control.Monad.Trans
@@ -17,14 +18,16 @@ import Data.IORef
 import Data.List
 import Data.Maybe
 import GHC.Conc
-import qualified Text.JSON       as J
-import qualified Text.JSON.Types as JT
+import qualified Data.Aeson as Ae
 import Safe (readMay)
 import System.Console.GetOpt
 import System.Environment
 import System.Exit
 import System.IO
 import System.IO.Error
+import qualified Data.Text as T
+import Data.Text.Encoding (encodeUtf8)
+import Data.ByteString.Lazy (fromStrict)
 
 
 type ProgramM = ReaderT (TVar [Results]) IO
@@ -32,6 +35,9 @@ type ProgramM = ReaderT (TVar [Results]) IO
 data SuiteState = SuiteState { suiteResults :: Results,
                                suiteBaseUrl :: String,
                                suiteCurl :: Curl }
+
+--what we really want
+--type SuiteM = EitherT String (State.StateT SuiteState IO)
 
 type SuiteM = State.StateT SuiteState IO
 
@@ -53,11 +59,12 @@ ppRes (nm, Nothing) = "Pass: "++nm
 ppRes (nm, Just reason) = "FAIL: "++nm++"; "++reason
 
 
-suite :: String -> String -> SuiteM () ->  ProgramM ()
-suite suiteName baseURL m = do
+session :: String -> String -> SuiteM () ->  ProgramM ()
+session suiteName baseURL m = do
    c <- liftIO $ initialize
    let state0 = SuiteState [] baseURL c
-   liftIO $ setopts c [CurlCookieJar (suiteName++"_cookies"), CurlFollowLocation True]
+   liftIO $ setopts c [CurlCookieJar (suiteName++"_cookies"), 
+                       CurlFollowLocation True]
    SuiteState res _ _ <- liftIO $ State.execStateT m state0
    res_tv <- ask
    liftIO $ atomically $ do 
@@ -76,8 +83,11 @@ getRaw url = do
   SuiteState _ base c <-  State.get
   liftIO $ curlGetString c (base++url) [] 
 
---getJSON :: FromValue a => String -> SuiteM a
-
+getJSON :: Ae.FromJSON a => String -> SuiteM a
+getJSON url = do
+  str <- get url
+  let Just x = Ae.decode' $ fromStrict $ encodeUtf8 $ T.pack str
+  return x
 
 assert :: String -> Bool -> SuiteM ()
 assert assName True = 
