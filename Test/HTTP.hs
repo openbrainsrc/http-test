@@ -1,9 +1,6 @@
-module Test.HTTP where
+module Test.HTTP (httpTest, session, get, getJSON, postForm, assert, Program, Session) where
 
 import Network.Curl hiding (curlGetString)
-import Network.Browser
-import Network.HTTP
-import Network.URI    ( parseURI )
 
 import Control.Concurrent
 import Control.Concurrent.STM
@@ -30,20 +27,22 @@ import Data.Text.Encoding (encodeUtf8)
 import Data.ByteString.Lazy (fromStrict)
 
 
-type ProgramM = ReaderT (TVar [Results]) IO
+type Program = ReaderT (TVar [Results]) IO
 
-data SuiteState = SuiteState { suiteResults :: Results,
-                               suiteBaseUrl :: String,
-                               suiteCurl :: Curl }
+data SessionState = SessionState { sessionResults :: Results,
+                               sessionBaseUrl :: String,
+                               sessionCurl :: Curl }
 
 --what we really want
---type SuiteM = EitherT String (State.StateT SuiteState IO)
+--type Session = EitherT String (State.StateT SessionState IO)
 
-type SuiteM = State.StateT SuiteState IO
+type Session = State.StateT SessionState IO
 
 type Results = [(String, Maybe String)]
 
-httpTest :: ProgramM () -> IO ()
+-- | Run one or more test sessions. httpTest will exit when done, with
+-- exit code 1 if there were failures
+httpTest :: Program () -> IO ()
 httpTest m = withCurlDo $ do
    resTV <- newTVarIO []
    runReaderT m resTV
@@ -59,44 +58,67 @@ ppRes (nm, Nothing) = "Pass: "++nm
 ppRes (nm, Just reason) = "FAIL: "++nm++"; "++reason
 
 
-session :: String -> String -> SuiteM () ->  ProgramM ()
-session suiteName baseURL m = do
+-- | Define a single test session based on session name and base url
+session :: String -- ^ Session name (used for logging failures)
+        -> String -- ^ Base URL
+        -> Session () -- ^ the actions and assertions that define the session
+        ->  Program ()
+session sessionName baseURL m = do
    c <- liftIO $ initialize
-   let state0 = SuiteState [] baseURL c
-   liftIO $ setopts c [CurlCookieJar (suiteName++"_cookies"), 
+   let state0 = SessionState [] baseURL c
+   liftIO $ setopts c [CurlCookieJar (sessionName++"_cookies"), 
                        CurlFollowLocation True]
-   SuiteState res _ _ <- liftIO $ State.execStateT m state0
+   SessionState res _ _ <- liftIO $ State.execStateT m state0
    res_tv <- ask
    liftIO $ atomically $ do 
        others <- readTVar res_tv
        writeTVar res_tv $ others ++ [res]
 
-get :: String -> SuiteM String
+-- | GET a web page as a String
+get :: String -- ^ URL
+    -> Session String
 get url = do
   (code, res) <- getRaw url
   when (code /= CurlOK) $ 
      failTest ("GET "++url) (show code)     
   return res
 
-getRaw :: String -> SuiteM (CurlCode, String) 
+getRaw :: String -> Session (CurlCode, String) 
 getRaw url = do
-  SuiteState _ base c <-  State.get
+  SessionState _ base c <-  State.get
   liftIO $ curlGetString c (base++url) [] 
 
-getJSON :: Ae.FromJSON a => String -> SuiteM a
+-- | GET a JSON value
+getJSON :: Ae.FromJSON a => 
+        String -- ^ URL
+        -> Session a
 getJSON url = do
   str <- get url
   let Just x = Ae.decode' $ fromStrict $ encodeUtf8 $ T.pack str
   return x
 
-assert :: String -> Bool -> SuiteM ()
+-- | POST a form
+postForm :: String -- ^ URL
+         -> [(String,String)]  -- ^ form fields
+         -> Session String
+postForm url fields = do
+  SessionState _ base c <-  State.get
+  (code, res) <- liftIO $ curlPostString c (base++url) [] fields
+  when (code /= CurlOK) $ 
+     failTest ("POST "++url) (show code)
+  return res
+
+-- | make an assertion
+assert :: String -- ^ assertion name (used for reporting failures
+       -> Bool -- ^ Boolean of which we are asserting truth
+       -> Session ()
 assert assName True = 
   passTest assName
 assert assName False =
   failTest assName "fail" 
 
 addTestResult p = 
-  State.modify $ \s -> s { suiteResults = p : suiteResults s }
+  State.modify $ \s -> s { sessionResults = p : sessionResults s }
 
 passTest tstNm = addTestResult (tstNm, Nothing)
 failTest tstNm reason =  addTestResult (tstNm, Just reason)
