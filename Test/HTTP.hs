@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, postForm, assert, Program, Session) where
+module Test.HTTP (httpTest, session, get, getJSON, postForm, assert, debug, Program, Session) where
 
 import Network.Curl hiding (curlGetString)
 
@@ -17,11 +17,8 @@ import Data.Maybe
 import GHC.Conc
 import qualified Data.Aeson as Ae
 import Safe (readMay)
-import System.Console.GetOpt
 import System.Environment
 import System.Exit
-import System.IO
-import System.IO.Error
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
 import Data.ByteString.Lazy (fromStrict)
@@ -117,6 +114,16 @@ assert assName True =
 assert assName False =
   failTest assName "fail" 
 
+-- | Output a string to stdout if @--verbose@ is in command line arguments
+debug :: String -> Session ()
+debug s = do
+  args <- liftIO $ getArgs
+  if "--verbose" `elem` args
+     then liftIO $ putStrLn s
+     else return ()
+
+  
+
 addTestResult p = 
   State.modify $ \s -> s { sessionResults = p : sessionResults s }
 
@@ -124,8 +131,6 @@ passTest tstNm = addTestResult (tstNm, Nothing)
 failTest tstNm reason =  addTestResult (tstNm, Just reason)
 
 
-
-   
 {-------------------------------------------------------
                 CURL AUXILIARY FUNCTIONS
  -------------------------------------------------------}

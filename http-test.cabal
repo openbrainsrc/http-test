@@ -1,8 +1,21 @@
 Name:                http-test
-Version:             0.1.1
+Version:             0.1.2
 synopsis:            Test framework for HTTP APIs
 Description:         A simple framework for making assertions about the 
-                     responses of HTTP servers. See test.hs for an example
+                     responses of HTTP servers.
+                     .
+                     > import Test.HTTP
+                     > import Data.List (isInfixOf)
+                     >
+                     > main = httpTest $ do
+                     >   session "BayesHive landing page" "https://bayeshive.com" $ do
+                     >     landing <- get "/"
+                     >     assert "Correct blog link" $ 
+                     >       "href=\"https://bayeshive.com/blog\"" `isInfixOf` landing
+                     >     loginResult <- postForm "/auth/page/email/login" 
+                     >                      [("email", "foo"), ("password", "bar")]
+                     >     debug loginResult
+
 License:             BSD3
 Author:              OpenBrain Ltd
 Maintainer:          tomn@openbrain.org
