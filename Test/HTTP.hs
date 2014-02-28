@@ -86,17 +86,17 @@ getRaw url = do
   SessionState _ base c <-  State.get
   liftIO $ curlGetString c (base++url) [] 
 
--- | GET a JSON value
+-- | perform an action with a JSON value from a GET
 getJSON :: Ae.FromJSON a => 
            String  -- ^ URL
-           -> Session a
-getJSON url = do
+           -> (a -> Session ()) -- ^ action to perform on successfully decoded value
+           -> Session ()
+getJSON url mu = do
   str <- get url
   case Ae.eitherDecode' $ fromStrict $ encodeUtf8 $ T.pack str of
-    Right x -> return x
+    Right x -> mu x
     Left err -> do failTest ("GET "++url) $ "JSON decoding failure: "++ err
-                   fail $ ("GET "++url) ++ " JSON decoding failure: "++ err
-
+                   return ()
 
 -- | POST a form
 postForm :: String -- ^ URL
