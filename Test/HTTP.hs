@@ -28,13 +28,13 @@ import Data.ByteString.Lazy (fromStrict)
 type Program = ReaderT (TVar [Results]) IO
 
 data SessionState = SessionState { sessionResults :: Results,
-                               sessionBaseUrl :: String,
-                               sessionCurl :: Curl }
+                                   sessionBaseUrl :: String,
+                                   sessionCurl :: Curl }
 
 --what we really want
 --type Session = EitherT String (State.StateT SessionState IO)
 
-type Session = State.StateT SessionState IO
+type Session a = State.StateT SessionState (ErrorT String IO) a
 
 type Results = [(String, Maybe String)]
 
@@ -60,17 +60,24 @@ ppRes (nm, Just reason) = "FAIL: "++nm++"; "++reason
 session :: String -- ^ Session name (used for logging failures)
         -> String -- ^ Base URL
         -> Session () -- ^ the actions and assertions that define the session
-        ->  Program ()
+        -> Program ()
 session sessionName baseURL m = do
    c <- liftIO $ initialize
    let state0 = SessionState [] baseURL c
    liftIO $ setopts c [CurlCookieJar (sessionName++"_cookies"), 
                        CurlFollowLocation True]
-   SessionState res _ _ <- liftIO $ State.execStateT m state0
-   res_tv <- ask
-   liftIO $ atomically $ do 
-       others <- readTVar res_tv
-       writeTVar res_tv $ others ++ [res]
+   res <- liftIO $ runErrorT $ State.execStateT m state0
+   case res of 
+      Right (SessionState res _ _) -> do
+         res_tv <- ask
+         liftIO $ atomically $ do 
+            others <- readTVar res_tv
+            writeTVar res_tv $ others ++ [reverse res]
+      Left err -> do
+         res_tv <- ask
+         liftIO $ atomically $ do 
+            others <- readTVar res_tv
+            writeTVar res_tv $ others ++ [[(sessionName, Just $ sessionName ++ " session failure:" ++err)]]
 
 -- | GET a web page as a String
 get :: String -- ^ URL
@@ -86,19 +93,30 @@ getRaw url = do
   SessionState _ base c <-  State.get
   liftIO $ curlGetString c (base++url) [] 
 
--- | perform an action with a JSON value from a GET
+-- | GET a JSON value
 getJSON :: Ae.FromJSON a => 
+           String  -- ^ URL
+           -> Session a
+getJSON url = do
+  str <- get url
+  case Ae.eitherDecode' $ fromStrict $ encodeUtf8 $ T.pack str of
+    Right x -> return x
+    Left err -> throwError $  "GET "++url ++ " JSON decoding failure: "++ err
+
+
+-- | perform an action with a JSON value from a GET
+withJSON :: Ae.FromJSON a => 
            String  -- ^ URL
            -> (a -> Session ()) -- ^ action to perform on successfully decoded value
            -> Session ()
-getJSON url mu = do
+withJSON url mu = do
   str <- get url
   case Ae.eitherDecode' $ fromStrict $ encodeUtf8 $ T.pack str of
     Right x -> mu x
     Left err -> do failTest ("GET "++url) $ "JSON decoding failure: "++ err
                    return ()
 
--- | POST a form
+-- | Post a form
 postForm :: String -- ^ URL
          -> [(String,String)]  -- ^ form fields
          -> Session String
