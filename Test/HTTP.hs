@@ -16,6 +16,7 @@ import Data.List
 import Data.Maybe
 import GHC.Conc
 import qualified Data.Aeson as Ae
+import Data.Aeson.Types (Parser, parseEither)
 import Safe (readMay)
 import System.Environment
 import System.Exit
@@ -113,6 +114,17 @@ assert assName True =
   passTest assName
 assert assName False =
   failTest assName "fail" 
+
+-- | make an assertion in the Parser monad, ofr use with JSON value
+assertParse :: String      -- ^ assertion name (used for reporting failures
+            -> Parser Bool -- ^ Boolean of which we are asserting truth
+            -> Session ()
+assertParse assName pb  =
+  case parseEither (const pb) () of
+    Left err -> failTest assName $ "parse failure: "++err
+    Right True -> passTest assName
+    Right False -> failTest assName "fail" 
+
 
 -- | Output a string to stdout if @--verbose@ is in command line arguments
 debug :: String -> Session ()
