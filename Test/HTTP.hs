@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, postForm, assert, debug, Program, Session) where
+module Test.HTTP (httpTest, session, get, getJSON, postForm, assert, assertParse, debug, Program, Session) where
 
 import Network.Curl hiding (curlGetString)
 
@@ -88,12 +88,15 @@ getRaw url = do
 
 -- | GET a JSON value
 getJSON :: Ae.FromJSON a => 
-        String -- ^ URL
-        -> Session a
+           String  -- ^ URL
+           -> Session a
 getJSON url = do
   str <- get url
-  let Just x = Ae.decode' $ fromStrict $ encodeUtf8 $ T.pack str
-  return x
+  case Ae.eitherDecode' $ fromStrict $ encodeUtf8 $ T.pack str of
+    Right x -> return x
+    Left err -> do failTest ("GET "++url) $ "JSON decoding failure: "++ err
+                   fail $ ("GET "++url) ++ " JSON decoding failure: "++ err
+
 
 -- | POST a form
 postForm :: String -- ^ URL
