@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, withJSON, postForm, assert, assertParse, debug, Program, Session) where
+module Test.HTTP (httpTest, session, get, getJSON, withJSON, postForm, assert, assertEq, assertParse, debug, Program, Session) where
 
 import Network.Curl hiding (curlGetString)
 
@@ -30,9 +30,6 @@ type Program = ReaderT (TVar [Results]) IO
 data SessionState = SessionState { sessionResults :: Results,
                                    sessionBaseUrl :: String,
                                    sessionCurl :: Curl }
-
---what we really want
---type Session = EitherT String (State.StateT SessionState IO)
 
 type Session a = State.StateT SessionState (ErrorT String IO) a
 
@@ -77,7 +74,9 @@ session sessionName baseURL m = do
          res_tv <- ask
          liftIO $ atomically $ do 
             others <- readTVar res_tv
-            writeTVar res_tv $ others ++ [[(sessionName, Just $ sessionName ++ " session failure:" ++err)]]
+            writeTVar res_tv $ others ++ 
+                               [[(sessionName, 
+                                 Just $ sessionName ++ " session failure:" ++err)]]
 
 -- | GET a web page as a String
 get :: String -- ^ URL
@@ -131,10 +130,16 @@ postForm url fields = do
 assert :: String -- ^ assertion name (used for reporting failures
        -> Bool -- ^ Boolean of which we are asserting truth
        -> Session ()
-assert assName True = 
-  passTest assName
-assert assName False =
-  failTest assName "fail" 
+assert assName True = passTest assName
+assert assName False = failTest assName "fail" 
+
+-- | assert equality, for better output messages
+assertEq :: (Show a, Eq a) => String -- ^ assertion name (used for reporting failures
+       -> a  -- ^ a value
+       -> a  -- ^ what it is meant to be equal to
+       -> Session ()
+assertEq assName x y | x == y    = passTest assName
+                     | otherwise = failTest assName $ "not equal: "++show x ++" /= "++show y
 
 -- | make an assertion in the Parser monad, ofr use with JSON value
 assertParse :: String      -- ^ assertion name (used for reporting failures
