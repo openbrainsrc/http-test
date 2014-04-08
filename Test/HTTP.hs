@@ -21,8 +21,8 @@ import Safe (readMay)
 import System.Environment
 import System.Exit
 import qualified Data.Text as T
-import Data.Text.Encoding (encodeUtf8)
-import Data.ByteString.Lazy (fromStrict)
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
+import Data.ByteString.Lazy (fromStrict, toStrict)
 
 
 type Program = ReaderT (TVar [Results]) IO
@@ -119,12 +119,22 @@ withJSON url mu = do
 postForm :: String -- ^ URL
          -> [(String,String)]  -- ^ form fields
          -> Session String
-postForm url fields = do
+postForm url fields = post url $  map (\(x,y) -> x ++ ('=':y)) fields
+
+-- | Post a string body
+post :: String -> [String] -> Session String
+post url body = do
   SessionState _ base c <-  State.get
-  (code, res) <- liftIO $ curlPostString c (base++url) [] fields
+  (code, res) <- liftIO $ curlPostString c (base++url) [] body
   when (code /= CurlOK) $ 
-     failTest ("POST "++url) (show code)
+     failTest ("POST "++url) (show code++"\nResponse:\n"++res)
   return res
+
+-- | Post a JSON value
+postJSON :: Ae.ToJSON a => String -> a -> Session String
+postJSON url x = post url [T.unpack $ decodeUtf8 $ toStrict $ Ae.encode x]
+
+
 
 -- | make an assertion
 assert :: String -- ^ assertion name (used for reporting failures
@@ -193,14 +203,14 @@ curlGetString h url opts = do
 
 -- | Custom version of curlPost that uses an existing Curl to handle cookies
 -- and returns the result in a string.
-curlPostString :: Curl -> URLString -> [CurlOption] -> [(String, String)] -> IO (CurlCode, String)
-curlPostString h url opts fields = do
+curlPostString :: Curl -> URLString -> [CurlOption] -> [String] -> IO (CurlCode, String)
+curlPostString h url opts body = do
   ref <- newIORef []
   -- Note: later options may (and should, probably) override these defaults.
   setopt h (CurlFollowLocation True)
   setopt h (CurlFailOnError True)
   setopt h (CurlPost True)
-  setopt h (CurlPostFields fields')
+  setopt h (CurlPostFields body)
   setDefaultSSLOpts h url
   setopt h (CurlURL url)
   setopt h (CurlWriteFunction (gatherOutput ref))
@@ -208,7 +218,6 @@ curlPostString h url opts fields = do
   rc <- perform h
   lss <- readIORef ref
   return (rc, concat $ reverse lss)
- where fields' = map (\(x,y) -> x ++ '=':y) fields
 
 {-------------------------------------------------------
                        ENCODING
