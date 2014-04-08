@@ -84,7 +84,7 @@ get :: String -- ^ URL
 get url = do
   (code, res) <- getRaw url
   when (code /= CurlOK) $ 
-     failTest ("GET "++url) (show code)     
+     failTest ("GET "++url) (show code++"\nResponse:\n"++res)
   return res
 
 getRaw :: String -> Session (CurlCode, String) 
