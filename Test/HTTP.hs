@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, withJSON, postForm, assert, assertEq, assertParse, debug, Program, Session) where
+module Test.HTTP (httpTest, session, get, getJSON, withJSON, postForm, assert, assertEq, assertParse, failTest, debug, Program, Session) where
 
 import Network.Curl hiding (curlGetString)
 
@@ -35,6 +35,8 @@ type Session a = State.StateT SessionState (ErrorT String IO) a
 
 type Results = [(String, Maybe String)]
 
+type Url = String
+
 -- | Run one or more test sessions. httpTest will exit when done, with
 -- exit code 1 if there were failures
 httpTest :: Program () -> IO ()
@@ -55,7 +57,7 @@ ppRes (nm, Just reason) = "FAIL: "++nm++"; "++reason
 
 -- | Define a single test session based on session name and base url
 session :: String -- ^ Session name (used for logging failures)
-        -> String -- ^ Base URL
+        -> Url -- ^ Base URL
         -> Session () -- ^ the actions and assertions that define the session
         -> Program ()
 session sessionName baseURL m = do
@@ -79,7 +81,7 @@ session sessionName baseURL m = do
                                  Just $ sessionName ++ " session failure:" ++err)]]
 
 -- | GET a web page as a String
-get :: String -- ^ URL
+get :: Url -- ^ URL
     -> Session String
 get url = do
   (code, res) <- getRaw url
@@ -87,14 +89,14 @@ get url = do
      failTest ("GET "++url) (show code++"\nResponse:\n"++res)
   return res
 
-getRaw :: String -> Session (CurlCode, String) 
+getRaw :: Url -> Session (CurlCode, String) 
 getRaw url = do
   SessionState _ base c <-  State.get
   liftIO $ curlGetString c (base++url) [] 
 
 -- | GET a JSON value
 getJSON :: Ae.FromJSON a => 
-           String  -- ^ URL
+           Url  -- ^ URL
            -> Session a
 getJSON url = do
   str <- get url
@@ -116,13 +118,13 @@ withJSON url mu = do
                    return ()
 
 -- | Post a form
-postForm :: String -- ^ URL
+postForm :: Url -- ^ URL
          -> [(String,String)]  -- ^ form fields
          -> Session String
 postForm url fields = post url $  map (\(x,y) -> x ++ ('=':y)) fields
 
 -- | Post a string body
-post :: String -> [String] -> Session String
+post :: Url -> [String] -> Session String
 post url body = do
   SessionState _ base c <-  State.get
   (code, res) <- liftIO $ curlPostString c (base++url) [] body
@@ -131,8 +133,12 @@ post url body = do
   return res
 
 -- | Post a JSON value
-postJSON :: Ae.ToJSON a => String -> a -> Session String
-postJSON url x = post url [T.unpack $ decodeUtf8 $ toStrict $ Ae.encode x]
+postJSON :: (Ae.ToJSON a, Ae.FromJSON b) => Url -> a -> Session b
+postJSON url x = do str <- post url [T.unpack $ decodeUtf8 $ toStrict $ Ae.encode x]
+                    case Ae.eitherDecode' $ fromStrict $ encodeUtf8 $ T.pack str of
+                      Right x -> return x
+                      Left err -> throwError $  "POST "++url ++ " JSON decoding failure: "++ err
+
 
 
 
