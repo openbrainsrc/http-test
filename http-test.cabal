@@ -1,5 +1,5 @@
 Name:                http-test
-Version:             0.1.4
+Version:             0.1.5
 synopsis:            Test framework for HTTP APIs
 Description:         A simple framework for making assertions about the 
                      responses of HTTP servers.
