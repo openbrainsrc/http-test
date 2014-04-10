@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, withJSON, post, postForm, postJSON, assert, assertEq, assertParse, failTest, debug, Program, Session) where
+module Test.HTTP (httpTest, session, get, getJSON, withJSON, post, postForm, postJSON, assert, assertEq, assertParse, failTest, debug, Program, Session, Url) where
 
 import Network.Curl hiding (curlGetString)
 
@@ -157,7 +157,7 @@ assertEq :: (Show a, Eq a) => String -- ^ assertion name (used for reporting fai
 assertEq assName x y | x == y    = passTest assName
                      | otherwise = failTest assName $ "not equal: "++show x ++" /= "++show y
 
--- | make an assertion in the Parser monad, ofr use with JSON value
+-- | make an assertion in the Parser monad, for use with JSON value
 assertParse :: String      -- ^ assertion name (used for reporting failures
             -> Parser Bool -- ^ Boolean of which we are asserting truth
             -> Session ()
