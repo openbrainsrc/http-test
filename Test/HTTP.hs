@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, session, get, getJSON, withJSON, post, postForm, postJSON, assert, assertEq, assertParse, failTest, debug, Program, Session, Url) where
+module Test.HTTP (httpTest, session, get, getJSON, withJSON, post, postForm, postJSON, assert, assertEq, assertParse, failTest, debug, Program, Session, Url, curlGetString, curlPostString) where
 
 import Network.Curl hiding (curlGetString)
 
