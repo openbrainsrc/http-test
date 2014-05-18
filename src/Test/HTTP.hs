@@ -1,4 +1,4 @@
-module Test.HTTP where
+module Test.HTTP (httpTest, get, getJSON, withJSON, post, postJSON, postForm, assert, assertEq, assertParse, debug, Session, Url) where
 
 import Control.Monad
 import Control.Monad.Error
