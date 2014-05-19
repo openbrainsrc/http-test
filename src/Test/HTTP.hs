@@ -1,4 +1,4 @@
-module Test.HTTP (httpTest, get, getJSON, withJSON, post, postJSON, postForm, assert, assertEq, assertParse, debug, Session, Url) where
+module Test.HTTP (httpTestCase, get, getJSON, withJSON, post, postJSON, postForm, assert, assertEq, assertParse, debug, Session, Url, Tasty.defaultMain) where
 
 import Control.Monad
 import Control.Monad.Error
@@ -17,7 +17,7 @@ import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 import qualified Data.ByteString.Lazy as BL 
 
 import qualified Test.Tasty.HUnit as HUnit
-import Test.Tasty
+import Test.Tasty as Tasty
 import qualified Network.Wreq as Wreq
 import qualified Network.Wreq.Types as WreqT
 import Control.Lens
@@ -34,13 +34,12 @@ data HttpTest = HttpTest { baseUrl :: String,
 
 type Url = String
 
--- | Run one or more test sessions. httpTest will exit when done, with
--- exit code 1 if there were failures
-httpTest :: String -- ^ Session name (used for logging failures)
-         -> Url -- ^ Base URL
-         -> Session () -- ^ the actions and assertions that define the session
-         -> IO ()
-httpTest sessionName sessBaseURL m = defaultMain $ HUnit.testCase sessionName $ do
+
+httpTestCase :: String -- ^ Session name (used for logging failures)
+             -> Url -- ^ Base URL
+             -> Session () -- ^ the actions and assertions that define the session
+             -> TestTree
+httpTestCase sessionName sessBaseURL m =  HUnit.testCase sessionName $ do
    S.evalStateT m $ HttpTest sessBaseURL (HT.createCookieJar [])
 
 
@@ -126,8 +125,6 @@ postJSON url x = do str <- post url $ T.unpack $ decodeUtf8 $ BL.toStrict $ Ae.e
                     case Ae.eitherDecode' $ BL.fromStrict $ encodeUtf8 $ T.pack str of
                       Right x -> return x
                       Left err -> throwError $ strMsg $  "POST "++url ++ " JSON decoding failure: "++ err
-
-
 
 
 -- | make an assertion

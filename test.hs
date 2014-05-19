@@ -1,7 +1,7 @@
 import Test.HTTP
 import Data.List (isInfixOf)
 
-main = httpTest "BayesHive landing page" "https://bayeshive.com" $ do
+main = defaultMain $ httpTestCase "BayesHive landing page" "https://bayeshive.com" $ do
     landing <- get "/"
     assert "Correct blog link" $ 
            "href=\"https://bayeshive.com/blog\"" `isInfixOf` landing
