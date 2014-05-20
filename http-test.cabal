@@ -1,5 +1,5 @@
 Name:                http-test
-Version:             0.2
+Version:             0.2.0.1
 synopsis:            Test framework for HTTP APIs
 Description:         A simple framework for making assertions about the 
                      responses of HTTP servers.
@@ -35,11 +35,11 @@ Library
    hs-source-dirs: src
    Build-depends: base                          >= 4          && < 5
                 , mtl                           
-                , aeson                         >= 0.7        && < 0.8
+                , aeson
                 , wreq
                 , tasty
                 , tasty-hunit
-                , text                          >= 1.1       && < 1.2
+                , text
                 , bytestring
                 , lens
                 , http-client
