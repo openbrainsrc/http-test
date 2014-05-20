@@ -1,5 +1,5 @@
 Name:                http-test
-Version:             0.2.0.1
+Version:             0.2.0.2
 synopsis:            Test framework for HTTP APIs
 Description:         A simple framework for making assertions about the 
                      responses of HTTP servers.
@@ -53,3 +53,4 @@ executable    http-test
   main-is: HttpTestExec.hs
   Build-depends: base                          >= 4          && < 5
                 , http-test
+                , network
