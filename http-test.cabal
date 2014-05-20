@@ -48,9 +48,3 @@ executable    test-http-test-bayeshive
   main-is: test.hs
   Build-depends: base                          >= 4          && < 5
                 , http-test
-
-executable    http-test
-  main-is: HttpTestExec.hs
-  Build-depends: base                          >= 4          && < 5
-                , http-test
-                , network
