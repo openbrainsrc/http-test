@@ -1,5 +1,5 @@
 Name:                http-test
-Version:             0.2.0.3
+Version:             0.2.1.0
 synopsis:            Test framework for HTTP APIs
 Description:         A simple framework for making assertions about the 
                      responses of HTTP servers.
@@ -43,6 +43,7 @@ Library
                 , bytestring
                 , lens
                 , http-client
+                , time
 
 executable    test-http-test-bayeshive
   main-is: test.hs

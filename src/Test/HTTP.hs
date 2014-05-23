@@ -22,6 +22,7 @@ import qualified Network.Wreq as Wreq
 import qualified Network.Wreq.Types as WreqT
 import Control.Lens
 import Data.Aeson.Lens
+import Data.Time
 
 import qualified Network.HTTP.Client as HT 
 
@@ -30,7 +31,8 @@ import Data.ByteString.Lazy.Char8 (unpack, pack)
 type Session = S.StateT HttpTest IO
 
 data HttpTest = HttpTest { baseUrl :: String,
-                           cookieJar :: HT.CookieJar }
+                           cookieJar :: HT.CookieJar,
+                           timer :: UTCTime }
 
 type Url = String
 
@@ -40,7 +42,8 @@ httpTestCase :: String -- ^ Session name (used for logging failures)
              -> Session () -- ^ the actions and assertions that define the session
              -> TestTree
 httpTestCase sessionName sessBaseURL m =  HUnit.testCase sessionName $ do
-   S.evalStateT m $ HttpTest sessBaseURL (HT.createCookieJar [])
+   tm <- getCurrentTime
+   S.evalStateT m $ HttpTest sessBaseURL (HT.createCookieJar []) tm
 
 
 withHT :: (HttpTest -> IO (HT.CookieJar, a)) -> Session a
@@ -62,7 +65,7 @@ get url = do
 
 
 getRaw :: Url -> Session (Int, String) 
-getRaw url = withHT $ \(HttpTest base cj) -> do
+getRaw url = withHT $ \(HttpTest base cj _) -> do
    r <- Wreq.getWith (Wreq.defaults & Wreq.cookies .~ cj) (base ++ url)
    return (r ^. Wreq.responseCookieJar, 
            (r ^. Wreq.responseStatus . Wreq.statusCode, 
@@ -95,7 +98,7 @@ withJSON url mu = do
 
 -- | Post a string body
 postRaw :: WreqT.Postable a => Url -> a -> Session String
-postRaw url body = withHT $ \(HttpTest base cj) -> do
+postRaw url body = withHT $ \(HttpTest base cj _) -> do
   r <- Wreq.postWith (Wreq.defaults & Wreq.cookies .~ cj) (base ++ url) body
 
   let code = r ^. Wreq.responseStatus . Wreq.statusCode
@@ -168,3 +171,19 @@ debug s = liftIO $ putStrLn s
      else return () -}
 
 
+-- | Re-start the timer
+
+tic :: Session ()
+tic = do
+  now <- liftIO $ getCurrentTime
+  S.modify $ \s -> s { timer = now }
+
+
+-- |
+
+toc :: String -> Session ()
+toc s = do
+  last <- fmap timer $ S.get
+  now <- liftIO $ getCurrentTime
+  let df = diffUTCTime now last
+  liftIO $ putStrLn $ s ++ " "++show df
