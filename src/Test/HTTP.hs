@@ -1,4 +1,4 @@
-module Test.HTTP (httpTestCase, get, getJSON, withJSON, post, postJSON, postForm, assert, assertEq, assertParse, debug, Session, Url, Tasty.defaultMain) where
+module Test.HTTP (httpTestCase, get, getJSON, withJSON, post, postJSON, postForm, assert, assertEq, assertParse, debug, Session, Url, Tasty.defaultMain, tic, toc) where
 
 import Control.Monad
 import Control.Monad.Error
@@ -179,7 +179,7 @@ tic = do
   S.modify $ \s -> s { timer = now }
 
 
--- |
+-- | Print the number of seconds elapsed, with a prefix
 
 toc :: String -> Session ()
 toc s = do
