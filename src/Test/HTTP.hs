@@ -181,9 +181,10 @@ tic = do
 
 -- | Print the number of seconds elapsed, with a prefix
 
-toc :: String -> Session ()
+toc :: String -> Session Double
 toc s = do
   last <- fmap timer $ S.get
   now <- liftIO $ getCurrentTime
   let df = diffUTCTime now last
   liftIO $ putStrLn $ s ++ " "++show df
+  return $ realToFrac df
