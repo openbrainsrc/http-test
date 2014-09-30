@@ -1,7 +1,7 @@
 Name:                http-test
-Version:             0.2.2.0
+Version:             0.2.4
 synopsis:            Test framework for HTTP APIs
-Description:         A simple framework for making assertions about the 
+Description:         A simple framework for making assertions about the
                      responses of HTTP servers.
                      .
                      > import Test.HTTP
@@ -9,9 +9,9 @@ Description:         A simple framework for making assertions about the
                      >
                      > main = defaultMain $ httpTestCase "BayesHive landing page" "https://bayeshive.com" $ do
                      >     landing <- get "/"
-                     >     assert "Correct blog link" $ 
+                     >     assert "Correct blog link" $
                      >       "href=\"https://bayeshive.com/blog\"" `isInfixOf` landing
-                     >     loginResult <- postForm "/auth/page/email/login" 
+                     >     loginResult <- postForm "/auth/page/email/login"
                      >                      [("email", "foo"), ("password", "bar")]
                      >     debug loginResult
 
@@ -34,14 +34,15 @@ Library
    Exposed-modules: Test.HTTP
    hs-source-dirs: src
    Build-depends: base                          >= 4          && < 5
-                , mtl                           
+                , mtl
                 , aeson
                 , wreq
                 , tasty
                 , tasty-hunit
                 , text
                 , bytestring
-                , lens
+                , lens >= 4.4
+                , lens-aeson
                 , http-client
                 , time
 
