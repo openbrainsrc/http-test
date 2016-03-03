@@ -14,7 +14,7 @@ import System.Environment
 import System.Exit
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8, decodeUtf8)
-import qualified Data.ByteString.Lazy as BL 
+import qualified Data.ByteString.Lazy as BL
 
 import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty as Tasty
@@ -24,7 +24,7 @@ import Control.Lens
 import Data.Aeson.Lens
 import Data.Time
 
-import qualified Network.HTTP.Client as HT 
+import qualified Network.HTTP.Client as HT
 
 import Data.ByteString.Lazy.Char8 (unpack, pack)
 
@@ -47,8 +47,8 @@ httpTestCase sessionName sessBaseURL m =  HUnit.testCase sessionName $ do
 
 
 withHT :: (HttpTest -> IO (HT.CookieJar, a)) -> Session a
-withHT m = do 
-  ht <- S.get 
+withHT m = do
+  ht <- S.get
   (cj, x) <- liftIO $  m ht
   S.modify $ \ht -> ht { cookieJar = cj }
   return x
@@ -58,22 +58,22 @@ get :: Url -- ^ URL
     -> Session String
 get url = do
   (code, res) <- getRaw url
-  when (code /= 200) $ 
+  when (code /= 200) $
      assertFailure $ "GET "++url++": "++show code -- ++"\nResponse:\n"++res
   return res
 
 
 
-getRaw :: Url -> Session (Int, String) 
+getRaw :: Url -> Session (Int, String)
 getRaw url = withHT $ \(HttpTest base cj _) -> do
-   r <- Wreq.getWith (Wreq.defaults & Wreq.cookies .~ cj) (base ++ url)
-   return (r ^. Wreq.responseCookieJar, 
-           (r ^. Wreq.responseStatus . Wreq.statusCode, 
+   r <- Wreq.getWith (Wreq.defaults & Wreq.cookies .~ Just cj) (base ++ url)
+   return (r ^. Wreq.responseCookieJar,
+           (r ^. Wreq.responseStatus . Wreq.statusCode,
             unpack $ r ^. Wreq.responseBody))
 
 
 -- | GET a JSON value
-getJSON :: Ae.FromJSON a => 
+getJSON :: Ae.FromJSON a =>
            Url  -- ^ URL
            -> Session a
 getJSON url = do
@@ -84,7 +84,7 @@ getJSON url = do
 
 
 -- | perform an action with a JSON value from a GET
-withJSON :: Ae.FromJSON a => 
+withJSON :: Ae.FromJSON a =>
            String  -- ^ URL
            -> (a -> Session ()) -- ^ action to perform on successfully decoded value
            -> Session ()
@@ -99,11 +99,11 @@ withJSON url mu = do
 -- | Post a string body
 postRaw :: WreqT.Postable a => Url -> a -> Session String
 postRaw url body = withHT $ \(HttpTest base cj _) -> do
-  r <- Wreq.postWith (Wreq.defaults & Wreq.cookies .~ cj) (base ++ url) body
+  r <- Wreq.postWith (Wreq.defaults & Wreq.cookies .~ Just cj) (base ++ url) body
 
   let code = r ^. Wreq.responseStatus . Wreq.statusCode
 
-  when (code /= 200) $ 
+  when (code /= 200) $
      liftIO $ HUnit.assertFailure $ "POST "++url++": "++show code++"\nResponse:\n"++show r
   return $ (r ^. Wreq.responseCookieJar, unpack $ r ^. Wreq.responseBody)
 
@@ -167,7 +167,7 @@ debug s = liftIO $ putStrLn s
 
 {-  args <- liftIO $ getArgs
   if "--verbose" `elem` args
-     then 
+     then
      else return () -}
 
 
