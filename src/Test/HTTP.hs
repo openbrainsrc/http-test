@@ -25,7 +25,7 @@ import Data.Aeson.Lens
 import Data.Time
 
 import qualified Network.HTTP.Client as HT
-
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Data.ByteString.Lazy.Char8 (unpack, pack)
 
 type Session = S.StateT HttpTest IO
@@ -66,7 +66,9 @@ get url = do
 
 getRaw :: Url -> Session (Int, String)
 getRaw url = withHT $ \(HttpTest base cj _) -> do
-   r <- Wreq.getWith (Wreq.defaults & Wreq.cookies .~ Just cj) (base ++ url)
+   let opts = Wreq.defaults & Wreq.cookies .~ Just cj
+                            & Wreq.manager .~ Left (tlsManagerSettings { HT.managerResponseTimeout = Just 100000000 } )
+   r <- Wreq.getWith opts (base ++ url)
    return (r ^. Wreq.responseCookieJar,
            (r ^. Wreq.responseStatus . Wreq.statusCode,
             unpack $ r ^. Wreq.responseBody))
@@ -99,7 +101,10 @@ withJSON url mu = do
 -- | Post a string body
 postRaw :: WreqT.Postable a => Url -> a -> Session String
 postRaw url body = withHT $ \(HttpTest base cj _) -> do
-  r <- Wreq.postWith (Wreq.defaults & Wreq.cookies .~ Just cj) (base ++ url) body
+  let opts = Wreq.defaults & Wreq.cookies .~ Just cj
+                           & Wreq.manager .~ Left (tlsManagerSettings { HT.managerResponseTimeout = Just 100000000 } )
+
+  r <- Wreq.postWith opts (base ++ url) body
 
   let code = r ^. Wreq.responseStatus . Wreq.statusCode
 

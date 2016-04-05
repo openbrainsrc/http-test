@@ -45,6 +45,7 @@ Library
                 , lens-aeson
                 , http-client
                 , time
+                , http-client-tls
 
 executable    test-http-test-bayeshive
   main-is: test.hs
